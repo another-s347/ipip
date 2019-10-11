@@ -1,0 +1,7 @@
+use ipip::{mac, MAC};
+
+#[test]
+fn test() {
+    assert_eq!(mac!(01:23:45:67:89:af),MAC([0x01,0x23,0x45,0x67,0x89,0xaf]));
+    assert_eq!(MAC::from_str("01:23:45:67:89:af"),Some(MAC([0x01,0x23,0x45,0x67,0x89,0xaf])));
+}

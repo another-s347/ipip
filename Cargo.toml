@@ -1,0 +1,13 @@
+[package]
+name = "ipip"
+version = "0.1.0"
+authors = ["skye347 <s347419313@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+proc-macro-hack = "0.5"
+proc-macro-nested = "0.1"
+ipip-macro-impl = { path="./ipip-macro-impl"}
+
+[workspace]
+members = ["ipip-macro-impl"]
