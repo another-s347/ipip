@@ -115,6 +115,20 @@ impl Ipv4AddrMasked {
             mask
         })
     }
+
+    pub fn subnet_mask(&self) -> Option<Ipv4Addr> {
+        if 1<=self.mask&&self.mask<=32 {
+            let x = !(0xffffffffu32 >> (self.mask as u32));
+            let a = ((x >> 24) & 0b11111111) as u8;
+            let b = ((x >> 16) & 0b11111111) as u8;
+            let c = ((x >> 8) & 0b11111111) as u8;
+            let d = (x & 0b11111111) as u8;
+            Some(Ipv4Addr::new(a,b,c,d))
+        }
+        else {
+            None
+        }
+    }
 }
 
 impl Debug for Ipv4AddrMasked {

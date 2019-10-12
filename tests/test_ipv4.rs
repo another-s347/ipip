@@ -13,4 +13,21 @@ fn test() {
         mask: 8
     }));
     assert_eq!(Ipv4AddrMasked::from_str("10.256.0.1/8"),None);
+    assert_eq!(Ipv4AddrMasked::from_str("10.256.0.1/8"),None);
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/8").and_then(|a|a.subnet_mask()),
+        Some(Ipv4Addr::new(255,0,0,0))
+    );
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/10").and_then(|a|a.subnet_mask()),
+        Some(Ipv4Addr::new(255,192,0,0))
+    );
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/18").and_then(|a|a.subnet_mask()),
+        Some(Ipv4Addr::new(255,255,192,0))
+    );
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/28").and_then(|a|a.subnet_mask()),
+        Some(Ipv4Addr::new(255,255,255,240))
+    );
 }
