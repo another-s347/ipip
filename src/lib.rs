@@ -129,6 +129,46 @@ impl Ipv4AddrMasked {
             None
         }
     }
+
+    pub fn broadcast_address(&self) -> Option<Ipv4Addr> {
+        if 1<=self.mask&&self.mask<=32 {
+            let x = (0xffffffffu32 >> (self.mask as u32));
+            let a = ((x >> 24) & 0b11111111) as u8;
+            let b = ((x >> 16) & 0b11111111) as u8;
+            let c = ((x >> 8) & 0b11111111) as u8;
+            let d = (x & 0b11111111) as u8;
+            let octets = self.addr.octets();
+            Some(Ipv4Addr::new(
+                octets[0]|a,
+                octets[1]|b,
+                octets[2]|c,
+                octets[3]|d
+            ))
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn base_address(&self) -> Option<Ipv4Addr> {
+        if 1<=self.mask&&self.mask<=32 {
+            let x = !(0xffffffffu32 >> (self.mask as u32));
+            let a = ((x >> 24) & 0b11111111) as u8;
+            let b = ((x >> 16) & 0b11111111) as u8;
+            let c = ((x >> 8) & 0b11111111) as u8;
+            let d = (x & 0b11111111) as u8;
+            let octets = self.addr.octets();
+            Some(Ipv4Addr::new(
+                octets[0]&a,
+                octets[1]&b,
+                octets[2]&c,
+                octets[3]&d
+            ))
+        }
+        else {
+            None
+        }
+    }
 }
 
 impl Debug for Ipv4AddrMasked {

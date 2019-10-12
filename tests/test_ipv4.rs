@@ -30,4 +30,12 @@ fn test() {
         Ipv4AddrMasked::from_str("10.255.0.1/28").and_then(|a|a.subnet_mask()),
         Some(Ipv4Addr::new(255,255,255,240))
     );
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/28").and_then(|a|a.broadcast_address()),
+        Some(Ipv4Addr::new(10,255,0,15))
+    );
+    assert_eq!(
+        Ipv4AddrMasked::from_str("10.255.0.1/28").and_then(|a|a.base_address()),
+        Some(Ipv4Addr::new(10,255,0,0))
+    );
 }
