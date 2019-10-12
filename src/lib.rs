@@ -169,6 +169,52 @@ impl Ipv4AddrMasked {
             None
         }
     }
+
+    pub fn usable_hosts_len(&self) -> u32 {
+        (0xffffffffu32 >> (self.mask as u32)) -1
+    }
+
+    pub fn usable_hosts(&self) -> UsableIpv4HostsIter {
+        let oct = self.addr.octets();
+        let base = ((oct[0] as u32) << 24) +
+            ((oct[1] as u32) << 16) +
+            ((oct[2] as u32) << 8) +
+            (oct[3] as u32)
+        ;
+        UsableIpv4HostsIter {
+            base,
+            left: self.usable_hosts_len(),
+        }
+    }
+}
+
+pub struct UsableIpv4HostsIter {
+    pub(crate) base:u32,
+    pub(crate) left:u32,
+}
+
+impl Iterator for UsableIpv4HostsIter {
+    type Item = Ipv4Addr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.left > 0 {
+            let x = self.base;
+            let a = ((x >> 24) & 0b11111111) as u8;
+            let b = ((x >> 16) & 0b11111111) as u8;
+            let c = ((x >> 8) & 0b11111111) as u8;
+            let d = (x & 0b11111111) as u8;
+            self.base += 1;
+            self.left-=1;
+            Some(Ipv4Addr::new(a,b,c,d))
+        }
+        else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.left as usize))
+    }
 }
 
 impl Debug for Ipv4AddrMasked {
