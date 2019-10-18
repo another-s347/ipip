@@ -6,7 +6,7 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 use syn::ext::IdentExt;
-use syn::{LitFloat, LitInt, parse_macro_input, Token, Error, Ident};
+use syn::{LitFloat, LitInt, parse_macro_input, Token, Error, Ident,Lit};
 use syn::parse::{Parse, ParseStream, Result, ParseBuffer};
 
 use proc_macro_hack::proc_macro_hack;
@@ -85,67 +85,98 @@ struct MAC {
     f:u8
 }
 
-struct HexLitInt(pub u8);
+struct HexLitInt<T>(pub T);
 
-impl Parse for HexLitInt {
+impl<T> Parse for HexLitInt<T>
+    where T:MyNumBound+Default
+{
     fn parse(input: &ParseBuffer) -> Result<Self> {
-        let d:u8 = if input.peek(LitInt) {
-            let d:u8 = input.parse::<LitInt>()?.base10_parse()?;
-            let low = d%10;
-            let high = d/10;
-            high*16+low
-        }
-        else if input.peek(Ident::peek_any) {
-            let ident = input.parse::<Ident>()?;
-            let ident_str = ident.to_string();
-            match ident_str.len() {
-                0 => {
-                    unreachable!()
+        let mut result:T = T::default();
+        let mut width = T::width();
+        loop {
+            if input.peek(LitInt) {
+                let lit = input.parse::<LitInt>()?;
+                let d = lit.to_string();
+                let is:&[u8] = d.as_ref();
+                if width<is.len() {
+                    return Err(input.error(format!("Hex length exceeded width == {}",T::width())));
                 }
-                1 => {
-                    let r:&[u8] = ident_str.as_ref();
-                    let low:u8 = r[0];
-                    if low < 97 || low > 102 {
-                        return Err(input.error("Invalid hex"))
-                    }
-                    low - 87
+                else {
+                    width-=is.len();
                 }
-                2 => {
-                    let r:&[u8] = ident_str.as_ref();
-                    let low:u8 = r[0];
-                    let high:u8 = r[1];
-                    if low < 97 || low > 102 {
-                        return Err(input.error("Invalid hex"))
+                for i in is {
+                    if let Some(i) = hex_to_u8(*i) {
+                        result = result.add_hex(i);
                     }
-                    if high < 97 || high > 102 {
-                        return Err(input.error("Invalid hex"))
+                    else {
+                        break;
                     }
-                    (low - 87)*16 + (high-87)
-                }
-                _ => {
-                    return Err(input.error("Hex length > 2"))
                 }
             }
-        } else {
-            unreachable!()
-        };
-        Ok(HexLitInt(d))
+            else if input.peek(Ident::peek_any) {
+                let ident = input.parse::<Ident>()?;
+                let ident_str = ident.to_string();
+                let is:&[u8] = ident_str.as_ref();
+                if width<is.len() {
+                    return Err(input.error(format!("Hex length exceeded width == {}",T::width())));
+                }
+                else {
+                    width-=is.len();
+                }
+                for i in is {
+                    if let Some(i) = hex_to_u8(*i) {
+                        result = result.add_hex(i);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            } else {
+                return Ok(HexLitInt(result))
+            };
+        }
+    }
+}
+
+trait MyNumBound {
+    fn width() -> usize;
+
+    fn add_hex(&self,other:u8) -> Self;
+}
+
+impl MyNumBound for u8 {
+    fn width() -> usize {
+        2
+    }
+
+    fn add_hex(&self, other: u8) -> Self {
+        self*16+other
+    }
+}
+
+impl MyNumBound for u16 {
+    fn width() -> usize {
+        4
+    }
+
+    fn add_hex(&self, other: u8) -> Self {
+        self*16+(other as u16)
     }
 }
 
 impl Parse for MAC {
     fn parse(input: &ParseBuffer) -> Result<Self> {
-        let a:u8 = input.parse::<HexLitInt>()?.0;
+        let a:u8 = input.parse::<HexLitInt<u8>>()?.0;
         input.parse::<Token![:]>()?;
-        let b:u8 = input.parse::<HexLitInt>()?.0;
+        let b:u8 = input.parse::<HexLitInt<u8>>()?.0;
         input.parse::<Token![:]>()?;
-        let c:u8 = input.parse::<HexLitInt>()?.0;
+        let c:u8 = input.parse::<HexLitInt<u8>>()?.0;
         input.parse::<Token![:]>()?;
-        let d:u8 = input.parse::<HexLitInt>()?.0;
+        let d:u8 = input.parse::<HexLitInt<u8>>()?.0;
         input.parse::<Token![:]>()?;
-        let e:u8 = input.parse::<HexLitInt>()?.0;
+        let e:u8 = input.parse::<HexLitInt<u8>>()?.0;
         input.parse::<Token![:]>()?;
-        let f:u8 = input.parse::<HexLitInt>()?.0;
+        let f:u8 = input.parse::<HexLitInt<u8>>()?.0;
         Ok(MAC {
             a,
             b,
@@ -153,6 +184,47 @@ impl Parse for MAC {
             d,
             e,
             f
+        })
+    }
+}
+
+struct IPv6 {
+    a:u16,
+    b:u16,
+    c:u16,
+    d:u16,
+    e:u16,
+    f:u16,
+    mask:Option<u8>
+}
+
+impl Parse for IPv6 {
+    fn parse(input: &ParseBuffer) -> Result<Self> {
+        let a:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let b:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let c:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let d:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let e:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let f:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        let mask = if let Ok(_) = input.parse::<Token![/]>() {
+            Some(input.parse::<LitInt>()?.base10_parse()?)
+        }
+        else {
+            None
+        };
+        Ok(IPv6 {
+            a,
+            b,
+            c,
+            d,
+            e,
+            f,
+            mask
         })
     }
 }
@@ -187,4 +259,45 @@ pub fn mac(input:TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         ::ipip::MAC([#a,#b,#c,#d,#e,#f])
     })
+}
+
+#[proc_macro_hack]
+pub fn ipv6(input:TokenStream) -> TokenStream {
+    let IPv6 {
+        a, b, c, d, e, f, mask
+    } = parse_macro_input!(input as IPv6);
+
+    if let Some(mask) = mask {
+        TokenStream::from(quote! {
+            ::ipip::Ipv6AddrMasked {
+                addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f),
+                mask:#mask
+            }
+        })
+    }
+    else {
+        TokenStream::from(quote! {
+            std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f)
+        })
+    }
+}
+
+fn hex_to_u8(s:u8) -> Option<u8> {
+    if in_ascii_hex_range(s) {
+        Some(s-87)
+    }
+    else if in_ascii_num_range(s) {
+        Some(s-48)
+    }
+    else {
+        None
+    }
+}
+
+fn in_ascii_num_range(a:u8)->bool {
+    48<=a && a<=57
+}
+
+fn in_ascii_hex_range(a:u8)->bool {
+    97<=a && a<=102
 }

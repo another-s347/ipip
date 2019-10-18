@@ -1,11 +1,11 @@
 use proc_macro_hack::proc_macro_hack;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[proc_macro_hack(support_nested)]
 pub use ipip_macro_impl::ipv4;
 #[proc_macro_hack(support_nested)]
 pub use ipip_macro_impl::mac;
-use std::fmt::{Display, Formatter, Error, Debug};
+use std::fmt::{Formatter, Error, Debug};
 use std::str::FromStr;
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
@@ -132,7 +132,7 @@ impl Ipv4AddrMasked {
 
     pub fn broadcast_address(&self) -> Option<Ipv4Addr> {
         if 1<=self.mask&&self.mask<=32 {
-            let x = (0xffffffffu32 >> (self.mask as u32));
+            let x = 0xffffffffu32 >> (self.mask as u32);
             let a = ((x >> 24) & 0b11111111) as u8;
             let b = ((x >> 16) & 0b11111111) as u8;
             let c = ((x >> 8) & 0b11111111) as u8;
@@ -220,6 +220,27 @@ impl Iterator for UsableIpv4HostsIter {
 impl Debug for Ipv4AddrMasked {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f,"{}/{}",self.addr,self.mask)
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+pub struct Ipv6AddrMasked {
+    pub addr:Ipv6Addr,
+    pub mask:u8
+}
+
+impl Ipv6AddrMasked {
+    pub fn from_str(s:&str) -> Option<Self> {
+        let split:Vec<&str> = s.split("/").collect();
+        if split.len()!=2 {
+            return None;
+        }
+        let addr = Ipv6Addr::from_str(split[0]).ok()?;
+        let mask = split[1].parse().ok()?;
+        Some(Self {
+            addr,
+            mask
+        })
     }
 }
 
