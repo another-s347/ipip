@@ -195,6 +195,8 @@ struct IPv6 {
     d:u16,
     e:u16,
     f:u16,
+    h:u16,
+    i:u16,
     mask:Option<u8>
 }
 
@@ -211,6 +213,10 @@ impl Parse for IPv6 {
         let e:u16 = input.parse::<HexLitInt<u16>>()?.0;
         input.parse::<Token![:]>()?;
         let f:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let h:u16 = input.parse::<HexLitInt<u16>>()?.0;
+        input.parse::<Token![:]>()?;
+        let i:u16 = input.parse::<HexLitInt<u16>>()?.0;
         let mask = if let Ok(_) = input.parse::<Token![/]>() {
             Some(input.parse::<LitInt>()?.base10_parse()?)
         }
@@ -224,6 +230,8 @@ impl Parse for IPv6 {
             d,
             e,
             f,
+            h,
+            i,
             mask
         })
     }
@@ -264,20 +272,20 @@ pub fn mac(input:TokenStream) -> TokenStream {
 #[proc_macro_hack]
 pub fn ipv6(input:TokenStream) -> TokenStream {
     let IPv6 {
-        a, b, c, d, e, f, mask
+        a, b, c, d, e, f, h, i, mask
     } = parse_macro_input!(input as IPv6);
 
     if let Some(mask) = mask {
         TokenStream::from(quote! {
             ::ipip::Ipv6AddrMasked {
-                addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f),
+                addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#h,#i),
                 mask:#mask
             }
         })
     }
     else {
         TokenStream::from(quote! {
-            std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f)
+            std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#h,#i)
         })
     }
 }
@@ -288,6 +296,9 @@ fn hex_to_u8(s:u8) -> Option<u8> {
     }
     else if in_ascii_num_range(s) {
         Some(s-48)
+    }
+    else if in_ascii_upper_hex_range(s) {
+        Some(s-55)
     }
     else {
         None
@@ -300,4 +311,8 @@ fn in_ascii_num_range(a:u8)->bool {
 
 fn in_ascii_hex_range(a:u8)->bool {
     97<=a && a<=102
+}
+
+fn in_ascii_upper_hex_range(a:u8)->bool {
+    65<=a && a<=90
 }

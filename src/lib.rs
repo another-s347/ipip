@@ -2,6 +2,8 @@ use proc_macro_hack::proc_macro_hack;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[proc_macro_hack(support_nested)]
+pub use ipip_macro_impl::ipv6;
+#[proc_macro_hack(support_nested)]
 pub use ipip_macro_impl::ipv4;
 #[proc_macro_hack(support_nested)]
 pub use ipip_macro_impl::mac;
@@ -219,7 +221,7 @@ impl Iterator for UsableIpv4HostsIter {
 
 impl Debug for Ipv4AddrMasked {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f,"{}/{}",self.addr,self.mask)
+        write!(f,"{:?}/{}",self.addr,self.mask)
     }
 }
 
@@ -227,6 +229,12 @@ impl Debug for Ipv4AddrMasked {
 pub struct Ipv6AddrMasked {
     pub addr:Ipv6Addr,
     pub mask:u8
+}
+
+impl Debug for Ipv6AddrMasked {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f,"{:?}/{}",self.addr,self.mask)
+    }
 }
 
 impl Ipv6AddrMasked {
