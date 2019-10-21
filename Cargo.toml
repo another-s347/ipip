@@ -3,6 +3,8 @@ name = "ipip"
 version = "0.1.0"
 authors = ["skye347 <s347419313@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
 
 [dependencies]
 proc-macro-hack = "0.5"
