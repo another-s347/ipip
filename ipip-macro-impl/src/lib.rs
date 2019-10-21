@@ -13,6 +13,7 @@ use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use syn::token::Token;
 
+#[derive(Debug)]
 struct IPv4 {
     a:u8,
     b:u8,
@@ -26,40 +27,40 @@ impl Parse for IPv4 {
         let high:LitFloat = input.parse()?;
         input.parse::<Token![.]>()?;
         let low:LitFloat = input.parse()?;
-        let x:f32 = high.base10_parse().unwrap();
+        let x:f32 = high.base10_parse()?;
         let a = x.floor();
         if a>255.0 {
             return Err(input.error("a > 255"));
         }
-        let b = (x.fract()*1000.0).round();
-        if b>255.0 {
+        let mut b = (x.fract()*1000.0).round();
+        if b>255000.0 {
             return Err(input.error("b > 255"));
         }
         let a = a as u8;
-        let mut b = b as u8;
-        if b%10 == 0 {
-            b = b/10;
+        if b%10.0 == 0.0 {
+            b = b/10.0;
         }
-        if b%10 == 0 {
-            b = b/10;
+        if b%10.0 == 0.0 {
+            b = b/10.0;
         }
+        let b = b as u8;
         let x:f32 = low.base10_parse()?;
         let c = x.floor();
         if c>255.0 {
             return Err(input.error("c > 255"));
         }
-        let d = (x.fract()*1000.0).round();
-        if d>255.0 {
+        let mut d = (x.fract()*1000.0).round();
+        if d>255000.0 {
             return Err(input.error("d > 255"));
         }
         let c = c as u8;
-        let mut d = d as u8;
-        if d%10 == 0 {
-            d = d/10;
+        if d%10.0 == 0.0 {
+            d = d/10.0;
         }
-        if d%10 == 0 {
-            d = d/10;
+        if d%10.0 == 0.0 {
+            d = d/10.0;
         }
+        let d = d as u8;
         let mask = if let Ok(_) = input.parse::<Token![/]>() {
             Some(input.parse::<LitInt>()?.base10_parse()?)
         }
@@ -195,43 +196,74 @@ struct IPv6 {
     d:u16,
     e:u16,
     f:u16,
+    g:u16,
     h:u16,
-    i:u16,
     mask:Option<u8>
 }
 
 impl Parse for IPv6 {
     fn parse(input: &ParseBuffer) -> Result<Self> {
-        let a:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let b:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let c:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let d:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let e:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let f:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let h:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        input.parse::<Token![:]>()?;
-        let i:u16 = input.parse::<HexLitInt<u16>>()?.0;
-        let mask = if let Ok(_) = input.parse::<Token![/]>() {
-            Some(input.parse::<LitInt>()?.base10_parse()?)
+        let mut buf = Vec::with_capacity(8);
+        let mut t = 0;
+        let mut zero_out = false;
+        let mut dual_mode_confirm = 0;
+        let mut mask = None;
+        while t <= 14 {
+            if input.peek(LitFloat) && buf.len() >=6 {
+                let ipv4 = IPv4::parse(input)?;
+                let a = (ipv4.a as u32)<<24;
+                let b = (ipv4.b as u32)<<16;
+                let c = (ipv4.c as u32)<<8;
+                let d = ipv4.d as u32;
+                buf.push(((((ipv4.a as u32)<<24)+((ipv4.b as u32)<<16))>>16) as u16);
+                buf.push((((ipv4.c as u32)<<8)+(ipv4.d as u32)) as u16);
+                mask = ipv4.mask;
+                break;
+            }
+            else if input.peek(Token![:]) {
+                input.parse::<Token![:]>()?;
+                if input.peek(Token![:])  {
+                    if zero_out {
+                        return Err(input.error("two ::"));
+                    }
+                    else {
+                        input.parse::<Token![:]>()?;
+                        buf.append(&mut vec![0u16;14-t]);
+                        zero_out = true;
+                    }
+                }
+            }
+            else {
+                buf.push(input.parse::<HexLitInt<u16>>()?.0);
+            };
+            if input.is_empty() {
+                break
+            }
+            t+=1;
         }
-        else {
-            None
+        if let Ok(_) = input.parse::<Token![/]>() {
+            mask = Some(input.parse::<LitInt>()?.base10_parse()?);
         };
+        let mut extra_zero = buf.len()-8;
+        let mut t = 0;
+        while extra_zero > 0 {
+            if *buf.get(t).unwrap()==0 {
+                buf.remove(t);
+                extra_zero-=1;
+            }
+            else {
+                t+=1;
+            }
+        }
         Ok(IPv6 {
-            a,
-            b,
-            c,
-            d,
-            e,
-            f,
-            h,
-            i,
+            a:buf[0],
+            b:buf[1],
+            c:buf[2],
+            d:buf[3],
+            e:buf[4],
+            f:buf[5],
+            g:buf[6],
+            h:buf[7],
             mask
         })
     }
@@ -272,20 +304,20 @@ pub fn mac(input:TokenStream) -> TokenStream {
 #[proc_macro_hack]
 pub fn ipv6(input:TokenStream) -> TokenStream {
     let IPv6 {
-        a, b, c, d, e, f, h, i, mask
+        a, b, c, d, e, f, g, h, mask
     } = parse_macro_input!(input as IPv6);
 
     if let Some(mask) = mask {
         TokenStream::from(quote! {
             ::ipip::Ipv6AddrMasked {
-                addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#h,#i),
+                addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#g,#h),
                 mask:#mask
             }
         })
     }
     else {
         TokenStream::from(quote! {
-            std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#h,#i)
+            std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#g,#h)
         })
     }
 }
