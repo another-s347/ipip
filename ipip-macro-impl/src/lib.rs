@@ -6,12 +6,11 @@ extern crate proc_macro;
 use proc_macro::TokenStream;
 
 use syn::ext::IdentExt;
-use syn::{LitFloat, LitInt, parse_macro_input, Token, Error, Ident,Lit};
+use syn::{LitFloat, LitInt, parse_macro_input, Token, Ident};
 use syn::parse::{Parse, ParseStream, Result, ParseBuffer};
 
 use proc_macro_hack::proc_macro_hack;
 use quote::quote;
-use syn::token::Token;
 
 #[derive(Debug)]
 struct IPv4 {
@@ -198,7 +197,7 @@ struct IPv6 {
     f:u16,
     g:u16,
     h:u16,
-    mask:Option<u8>
+    prefix:Option<u8>
 }
 
 impl Parse for IPv6 {
@@ -206,15 +205,10 @@ impl Parse for IPv6 {
         let mut buf = Vec::with_capacity(8);
         let mut t = 0;
         let mut zero_out = false;
-        let mut dual_mode_confirm = 0;
         let mut mask = None;
         while t <= 14 {
             if input.peek(LitFloat) && buf.len() >=6 {
                 let ipv4 = IPv4::parse(input)?;
-                let a = (ipv4.a as u32)<<24;
-                let b = (ipv4.b as u32)<<16;
-                let c = (ipv4.c as u32)<<8;
-                let d = ipv4.d as u32;
                 buf.push(((((ipv4.a as u32)<<24)+((ipv4.b as u32)<<16))>>16) as u16);
                 buf.push((((ipv4.c as u32)<<8)+(ipv4.d as u32)) as u16);
                 mask = ipv4.mask;
@@ -264,7 +258,7 @@ impl Parse for IPv6 {
             f:buf[5],
             g:buf[6],
             h:buf[7],
-            mask
+            prefix: mask
         })
     }
 }
@@ -304,14 +298,14 @@ pub fn mac(input:TokenStream) -> TokenStream {
 #[proc_macro_hack]
 pub fn ipv6(input:TokenStream) -> TokenStream {
     let IPv6 {
-        a, b, c, d, e, f, g, h, mask
+        a, b, c, d, e, f, g, h, prefix
     } = parse_macro_input!(input as IPv6);
 
-    if let Some(mask) = mask {
+    if let Some(prefix) = prefix {
         TokenStream::from(quote! {
-            ::ipip::Ipv6AddrMasked {
+            ::ipip::Ipv6AddrPrefixed {
                 addr:std::net::Ipv6Addr::new(#a,#b,#c,#d,#e,#f,#g,#h),
-                mask:#mask
+                prefix:#prefix
             }
         })
     }

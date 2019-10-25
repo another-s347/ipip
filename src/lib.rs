@@ -226,18 +226,18 @@ impl Debug for Ipv4AddrMasked {
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
-pub struct Ipv6AddrMasked {
+pub struct Ipv6AddrPrefixed {
     pub addr:Ipv6Addr,
-    pub mask:u8
+    pub prefix:u8
 }
 
-impl Debug for Ipv6AddrMasked {
+impl Debug for Ipv6AddrPrefixed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f,"{:?}/{}",self.addr,self.mask)
+        write!(f,"{:?}/{}",self.addr,self.prefix)
     }
 }
 
-impl Ipv6AddrMasked {
+impl Ipv6AddrPrefixed {
     pub fn from_str(s:&str) -> Option<Self> {
         let split:Vec<&str> = s.split("/").collect();
         if split.len()!=2 {
@@ -247,8 +247,67 @@ impl Ipv6AddrMasked {
         let mask = split[1].parse().ok()?;
         Some(Self {
             addr,
-            mask
+            prefix: mask
         })
+    }
+
+    pub fn prefix(&self) -> Option<Ipv6Addr> {
+        if 1<=self.prefix &&self.prefix <=128 {
+            let x = !(0xffffffff_ffffffff_ffffffff_ffffffffu128 >> (self.prefix as u128));
+            let a= ((x >> 112) & 0xffff) as u16;
+            let b= ((x >> 96) & 0xffff) as u16;
+            let c= ((x >> 80) & 0xffff) as u16;
+            let d= ((x >> 64) & 0xffff) as u16;
+            let e= ((x >> 48) & 0xffff) as u16;
+            let f= ((x >> 32) & 0xffff) as u16;
+            let g= ((x >> 16) & 0xffff) as u16;
+            let h= (x & 0xffff) as u16;
+            Some(Ipv6Addr::new(a,b,c,d,e,f,g,h))
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn base_address(&self) -> Option<Ipv6Addr> {
+        if 1<=self.prefix &&self.prefix <=32 {
+            let x = !(0xffffffff_ffffffff_ffffffff_ffffffffu128 >> (self.prefix as u128));
+            let a= ((x >> 112) & 0xffff) as u16;
+            let b= ((x >> 96) & 0xffff) as u16;
+            let c= ((x >> 80) & 0xffff) as u16;
+            let d= ((x >> 64) & 0xffff) as u16;
+            let e= ((x >> 48) & 0xffff) as u16;
+            let f= ((x >> 32) & 0xffff) as u16;
+            let g= ((x >> 16) & 0xffff) as u16;
+            let h= (x & 0xffff) as u16;
+            let octets = self.addr.segments();
+            Some(Ipv6Addr::new(
+                octets[0]&a,
+                octets[1]&b,
+                octets[2]&c,
+                octets[3]&d,
+                octets[4]&e,
+                octets[5]&f,
+                octets[6]&g,
+                octets[7]&h,
+            ))
+        }
+        else {
+            None
+        }
+    }
+
+//    pub fn usable_networks_len(&self) -> Option<u64> {
+//        if self.mask < 64 {
+//            Some((0xffffffff_ffffffffu64 >> (64-(self.mask as u64))) -1)
+//        }
+//        else {
+//            None
+//        }
+//    }
+
+    pub fn usable_address_len(&self) ->u128 {
+        (0xffffffff_ffffffff_ffffffff_ffffffffu128 >> (self.prefix as u128)) +1
     }
 }
 
