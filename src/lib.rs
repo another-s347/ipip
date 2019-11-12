@@ -1,3 +1,7 @@
+#[cfg(feature="serialize")]
+extern crate serde;
+#[cfg(feature="serde")]
+use serde::{Serialize, Deserialize};
 use proc_macro_hack::proc_macro_hack;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -10,6 +14,7 @@ pub use ipip_macro_impl::mac;
 use std::fmt::{Formatter, Error, Debug};
 use std::str::FromStr;
 
+#[cfg_attr(feature = "serialize", derive(Serialize,Deserialize))]
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub struct MAC(pub [u8; 6]);
 

@@ -11,5 +11,15 @@ proc-macro-hack = "0.5"
 proc-macro-nested = "0.1"
 ipip-macro-impl = { path="./ipip-macro-impl"}
 
+[dependencies.serde]
+version = "1.0"
+optional = true
+features = ["derive"]
+#default-features = false
+
 [workspace]
 members = ["ipip-macro-impl"]
+
+[features]
+default = []
+serialize = ["serde"]
